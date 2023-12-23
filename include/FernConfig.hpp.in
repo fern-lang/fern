@@ -1,0 +1,13 @@
+#ifndef FernConfig_hpp
+#define FernConfig_hpp
+
+#define FernVersion "@FERN_VERSION@"
+#define FernBuildDate @FERN_BUILD_DATE@
+#define FernGitRev "@FERN_BUILD_HASH@"
+
+#define FernVersionMajor @FERN_V_MAJOR@
+#define FernVersionMinor @FERN_V_MINOR@
+#define FernVersionPatch @FERN_V_PATCH@
+#define FernVersionNumber (FernVersionMajor * 10000 + FernVersionMinor * 100 + FernVersionPatch)
+
+#endif

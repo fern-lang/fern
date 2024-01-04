@@ -49,18 +49,17 @@ function(newFernTarget targetName)
     add_library(${targetName} SHARED ${FT_ALL_SOURCES} ${BACKWARD_ENABLE})
   endif()
 
-  # deprecated: add_backward(${targetName})
-  target_link_libraries(${targetName} PUBLIC Backward::Backward)
-
   target_include_directories(
     ${targetName}
     PUBLIC ${PROJECT_SOURCE_DIR}/include/
     PUBLIC ${PROJECT_SOURCE_DIR}/include/${base_dir}
+    PUBLIC ${LLVM_INCLUDE_DIRS}
   )
 
   # Add vendor libraries
-  target_link_directories(
+  target_link_libraries(
     ${targetName}
+    PRIVATE Backward::Backward
     PRIVATE cxxopts::cxxopts
     PRIVATE nlohmann_json::nlohmann_json
     PRIVATE fmt::fmt

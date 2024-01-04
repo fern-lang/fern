@@ -1,0 +1,5 @@
+extern func foo() -> int;
+
+func main(argc: int) -> int {
+  return 1 + 2 * (3 / (4 - 1)) + 0;
+}

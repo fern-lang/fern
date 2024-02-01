@@ -4,3 +4,4 @@ compile_commands.json
 include/FernConfig.hpp
 .cache/
 .idea/
+cmake-*/

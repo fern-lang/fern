@@ -5,6 +5,7 @@
 #include <string>
 #include "../Parse/Lex/Token.hpp"
 #include "AstNode.hpp"
+#include "../Sema/TypeVisitor.hpp"
 
 namespace fern {
 
@@ -17,8 +18,11 @@ public:
       name(name) {}
 
   auto print(llvm::raw_fd_ostream &out, usize indent) const -> void override {
-    out << std::string(indent * 2, ' ') << "VariableNode: '" << name << "'\n";
+    out.indent(indent) << "VariableNode: '" << name << "'\n";
   }
+
+  auto typeCheck(TypeVisitor &visitor) -> void override { visitor.visit(*this); }
+  auto codegen(CodegenVisitor &visitor) -> llvm::Value* override  { return visitor.visit(*this); }
 
   auto getName() const -> std::string { return name; }
 };

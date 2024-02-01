@@ -24,6 +24,8 @@ auto tokenKindToString(TokenKind kind) -> std::string {
     return "Colon";
   case TokenKind::Semicolon:
     return "Semicolon";
+  case TokenKind::Ref:
+    return "Ref";
 
   case TokenKind::Plus:
     return "Plus";
@@ -39,6 +41,8 @@ auto tokenKindToString(TokenKind kind) -> std::string {
     return "Equal";
   case TokenKind::EqualEqual:
     return "EqualEqual";
+  case TokenKind::ColonEqual:
+    return "ColonEqual";
   case TokenKind::Bang:
     return "Bang";
   case TokenKind::BangEqual:
@@ -62,6 +66,8 @@ auto tokenKindToString(TokenKind kind) -> std::string {
     return "Integer";
   case TokenKind::Float:
     return "Float";
+  case TokenKind::Bool:
+    return "Bool";
 
   case TokenKind::Let:
     return "Let";

@@ -4,6 +4,7 @@
 #include <memory>
 #include <string>
 #include "../Parse/Lex/Token.hpp"
+#include "../Sema/TypeVisitor.hpp"
 #include "AstNode.hpp"
 
 namespace fern {
@@ -16,10 +17,15 @@ public:
       AstNode(loc), nodes(nodes) {}
 
   auto print(llvm::raw_fd_ostream &out, usize indent) const -> void override {
-    out << std::string(indent * 2, ' ') << "BlockNode\n";
+    out.indent(indent) << "BlockNode\n";
     for (auto &node: nodes) {
       node->print(out, indent + 1);
     }
+  }
+
+  auto typeCheck(TypeVisitor &visitor) -> void override { visitor.visit(*this); }
+  auto codegen(CodegenVisitor &visitor) -> llvm::Value * override {
+    return visitor.visit(*this);
   }
 
   auto getNodes() const -> std::vector<std::shared_ptr<AstNode>> { return nodes; }

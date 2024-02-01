@@ -37,16 +37,33 @@ class Parser {
     {TokenKind::Slash, 5},
   };
 
+  std::map<std::string, Type> primitiveTypeMap = {
+    {"int", Type::Int()},
+    {"float", Type::Float()},
+    {"char", Type::Char()},
+    {"str", Type::Str()},
+    {"bool", Type::Bool()},
+  };
+
 public:
   Parser(const std::vector<Token> &tokens, Context &ctx) : tokens(std::move(tokens)), ctx(ctx) {}
 
-  auto parse() -> bool;
+  auto parse() -> std::shared_ptr<ProgramNode>;
 
 private:
   auto getTokenPrec(TokenKind kind) -> int {
     auto it = binOpPrec.find(kind);
     if (it == binOpPrec.end()) {
       return -1;
+    }
+
+    return it->second;
+  }
+
+  auto getPrimitiveType(const std::string &name) -> std::optional<Type> {
+    auto it = primitiveTypeMap.find(name);
+    if (it == primitiveTypeMap.end()) {
+      return std::nullopt;
     }
 
     return it->second;
@@ -73,6 +90,8 @@ private:
 
   auto parseIfExpr() -> std::shared_ptr<AstNode>;
   auto parseLetExpr() -> std::shared_ptr<AstNode>;
+
+  auto parseType() -> Type;
 };
 
 }

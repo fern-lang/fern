@@ -5,6 +5,7 @@
 #include <string>
 #include "../Parse/Lex/Token.hpp"
 #include "AstNode.hpp"
+#include "../Sema/TypeVisitor.hpp"
 
 namespace fern {
 
@@ -19,11 +20,14 @@ public:
       callee(callee), args(args) {}
 
   auto print(llvm::raw_fd_ostream &out, usize indent) const -> void override {
-    out << std::string(indent * 2, ' ') << "CallNode: '" << callee << "'\n";
+    out.indent(indent) << "CallNode: '" << callee << "'\n";
     for (auto &arg: args) {
       arg->print(out, indent + 1);
     }
   }
+
+  auto typeCheck(TypeVisitor &visitor) -> void override { visitor.visit(*this); }
+  auto codegen(CodegenVisitor &visitor) -> llvm::Value* override  { return visitor.visit(*this); }
 
   auto getCallee() const -> std::string { return callee; }
   auto getArgs() const -> std::vector<std::shared_ptr<AstNode>> { return args; }

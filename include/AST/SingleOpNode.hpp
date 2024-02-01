@@ -5,6 +5,7 @@
 #include <string>
 #include "../Parse/Lex/Token.hpp"
 #include "AstNode.hpp"
+#include "../Sema/TypeVisitor.hpp"
 
 namespace fern {
 
@@ -17,12 +18,15 @@ public:
       AstNode(loc), op(op), expr(expr) {}
 
   auto print(llvm::raw_fd_ostream &out, usize indent) const -> void override {
-    out << std::string(indent * 2, ' ') << "SingleOpNode: '" << tokenKindToString(op)
+    out.indent(indent) << "SingleOpNode: '" << tokenKindToString(op)
         << "'\n";
     if (expr) {
       expr->print(out, indent + 1);
     }
   }
+
+  auto typeCheck(TypeVisitor &visitor) -> void override { visitor.visit(*this); }
+  auto codegen(CodegenVisitor &visitor) -> llvm::Value* override  { return visitor.visit(*this); }
 
   auto getOp() -> TokenKind const { return op; }
   auto getExpr() const -> std::shared_ptr<AstNode> { return expr; }

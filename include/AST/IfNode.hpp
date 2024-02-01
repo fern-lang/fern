@@ -5,6 +5,7 @@
 #include <string>
 #include "../Parse/Lex/Token.hpp"
 #include "AstNode.hpp"
+#include "../Sema/TypeVisitor.hpp"
 
 namespace fern {
 
@@ -18,13 +19,16 @@ public:
       condition(condition), thenBlock(thenBlock), elseBlock(elseBlock) {}
 
   auto print(llvm::raw_fd_ostream &out, usize indent) const -> void override {
-    out << std::string(indent * 2, ' ') << "IfNode:\n";
+    out.indent(indent) << "IfNode:\n";
     condition->print(out, indent + 1);
     thenBlock->print(out, indent + 1);
     if (elseBlock) {
       elseBlock->print(out, indent + 1);
     }
   }
+
+  auto typeCheck(TypeVisitor &visitor) -> void override { visitor.visit(*this); }
+  auto codegen(CodegenVisitor &visitor) -> llvm::Value* override  { return visitor.visit(*this); }
 
   auto getCondition() const -> std::shared_ptr<AstNode> { return condition; }
   auto getThenBlock() const -> std::shared_ptr<AstNode> { return thenBlock; }

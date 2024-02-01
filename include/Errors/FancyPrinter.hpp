@@ -2,6 +2,7 @@
 #define Fern_Errors_FancyPrinter_hpp
 
 #include <Roots/_defines.hpp>
+#include <Roots/String.hpp>
 #include <fmt/format.h>
 #include <string>
 #include <string_view>
@@ -36,6 +37,15 @@ public:
     std::cerr << fmt::format("{} | {}", line + 1, getSourceLine(line)) << std::endl;
     std::cerr << fmt::format("{} | {}\n",
                              std::string(std::to_string(line + 1).length(), ' '), std::string(col, ' ') + "^");
+
+
+    auto note = roots::str::trim(error.getNote());
+    if (!note.empty()) {
+      std::cerr << fmt::format("{} = note: {}\n",
+                               std::string(std::to_string(line + 1).length(), ' '), note);
+    }
+
+    std::cerr << "\n";
   }
 
 private:

@@ -181,17 +181,29 @@ auto Lexer::lexOperatorOrComment() -> std::optional<Token> {
         cursor.nextWhile([this](char c) -> bool {
           return c != '\n';
         });
+
+        if (cursor.isEof()) {
+          context.recordError("Unterminated line comment", start);
+          return std::nullopt;
+        }
+
         return Token(TokenKind::Comment, "", start);
       } else if (cursor.peek() == '*') {
         cursor.next();
         while (!cursor.isEof()) {
-          if (cursor.peek() == '*' && cursor.peek(2) == '/') {
+          if (cursor.peek() == '*' && cursor.peek(1) == '/') {
             cursor.next();
             cursor.next();
             break;
           }
           cursor.next();
         }
+
+        if (cursor.isEof()) {
+          context.recordError("Unterminated block comment", start);
+          return std::nullopt;
+        }
+
         return Token(TokenKind::Comment, "", start);
       }
       return Token(TokenKind::Slash, "/", start);
@@ -243,6 +255,8 @@ auto Lexer::lexOperatorOrComment() -> std::optional<Token> {
       return Token(TokenKind::LBracket, "[", start);
     case ']':
       return Token(TokenKind::RBracket, "]", start);
+    case '&':
+      return Token(TokenKind::Ref, "&", start);
     default:
       context.recordError("Unexpected character", start);
       return std::nullopt;

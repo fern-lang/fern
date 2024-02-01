@@ -9,6 +9,10 @@
 #include "Error.hpp"
 #include "FancyPrinter.hpp"
 
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/Module.h"
+
 namespace fern {
 
 class Context {
@@ -16,8 +20,10 @@ class Context {
   std::vector<Error> warnings;
   std::string_view source;
   std::string_view filename;
-  std::vector<std::shared_ptr<Function>> functions;
-  std::vector<std::shared_ptr<ExternDef>> externs;
+
+  llvm::LLVMContext llvmContext;
+  llvm::IRBuilder<> builder{llvmContext};
+  llvm::Module llvmModule{"main", llvmContext};
 
 public:
   Context(std::string_view source, std::string_view filename) :
@@ -26,7 +32,11 @@ public:
   auto recordError(const std::string &message, SourceLocation loc) -> void;
   auto recordWarning(const std::string &message, SourceLocation loc) -> void;
 
-  auto printErrors(FancyErrorPrinter &printer) const -> void {
+  // sets the note of the previous error
+  auto recordNote(const std::string &message) -> void;
+
+  auto printErrors(FancyErrorPrinter &printer) -> void {
+    flushWarnings(printer);
     if (!hasErrors()) {
       std::cerr << "No errors recorded" << std::endl;
       return;
@@ -48,21 +58,15 @@ public:
     warnings.clear();
   }
 
-  auto addFunction(std::shared_ptr<Function> func) -> void { functions.push_back(func); }
-
-  auto addExtern(std::shared_ptr<ExternDef> ext) -> void { externs.push_back(ext); }
-
   auto hasErrors() const -> bool { return !errors.empty(); }
 
   auto getSource() const -> std::string_view { return source; }
   auto getFilename() const -> std::string_view { return filename; }
   auto getErrors() const -> const std::vector<Error> & { return errors; }
-  auto getFunctions() const -> const std::vector<std::shared_ptr<Function>> & {
-    return functions;
-  }
-  auto getExterns() const -> const std::vector<std::shared_ptr<ExternDef>> & {
-    return externs;
-  }
+
+  auto getLLVMContext() -> llvm::LLVMContext & { return llvmContext; }
+  auto getBuilder() -> llvm::IRBuilder<> & { return builder; }
+  auto getModule() -> llvm::Module & { return llvmModule; }
 };
 
 } // namespace fern

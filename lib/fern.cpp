@@ -2,11 +2,15 @@
 #include <cxxopts.hpp>
 #include <fmt/format.h>
 #include <iostream>
+#include "Errors/Context.hpp"
 #include "Errors/FancyPrinter.hpp"
 #include "FernConfig.hpp"
 #include "Parse/Lex/Lexer.hpp"
-#include "Errors/Context.hpp"
 #include "Parse/Parser.hpp"
+#include "Sema/TypeVisitor.hpp"
+#include "Codegen/CodegenVisitor.hpp"
+
+#define hasDebugPass(pass) (optRes.count("pass-debug") && std::find(optRes["pass-debug"].as<std::vector<std::string>>().begin(), optRes["pass-debug"].as<std::vector<std::string>>().end(), pass) != optRes["pass-debug"].as<std::vector<std::string>>().end())
 
 auto main(int argc, char **argv) -> int {
   cxxopts::Options opts("fern", fmt::format("Fern Compiler v{}", FernVersion));
@@ -14,6 +18,9 @@ auto main(int argc, char **argv) -> int {
   opts.add_options()("v,version", "Print version information")(
       "h,help", "Print this help text")("ifile", "File to compile",
                                         cxxopts::value<std::string>());
+
+
+  opts.add_options("Debug")("pass-debug", "Print debug information for specified passes", cxxopts::value<std::vector<std::string>>(), "[lex,parse,codegen]");
 
   opts.parse_positional({"ifile"});
   auto optRes = opts.parse(argc, argv);
@@ -55,16 +62,47 @@ auto main(int argc, char **argv) -> int {
   }
   ctx.flushWarnings(errPrinter);
 
-  fern::Parser parser(lexer.getTokens(), ctx);
-  auto parseRes = parser.parse();
+  if (hasDebugPass("lex")) {
+    std::cout << "Tokens:" << std::endl;
+    for (auto &token : lexer.getTokens()) {
+      std::cout << token.toString() << std::endl;
+    }
+  }
 
-  if (!parseRes) {
+  fern::Parser parser(lexer.getTokens(), ctx);
+  auto parsedProgram = parser.parse();
+
+  if (!parsedProgram) {
     ctx.printErrors(errPrinter);
     return 1;
   }
   ctx.flushWarnings(errPrinter);
 
-  std::cout << "Successfully parsed file" << std::endl;
+  if (hasDebugPass("parse")) {
+    std::cout << "AST:" << std::endl;
+    parsedProgram->print(llvm::outs(), 0);
+  }
+
+  fern::TypeVisitor typeChecker(ctx);
+  parsedProgram->typeCheck(typeChecker);
+
+  if (ctx.hasErrors()) {
+    ctx.printErrors(errPrinter);
+    return 1;
+  }
+  ctx.flushWarnings(errPrinter);
+
+  fern::CodegenVisitor codegen(ctx);
+  parsedProgram->codegen(codegen);
+
+  if (ctx.hasErrors()) {
+    ctx.printErrors(errPrinter);
+    return 1;
+  }
+  ctx.flushWarnings(errPrinter);
+
+  // print the LLVM IR
+  ctx.getModule().print(llvm::errs(), nullptr);
 
   return 0;
 }

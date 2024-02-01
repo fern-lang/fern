@@ -1,4 +1,4 @@
-add_subdirectory(Parse)
+add_subdirectory(Core)
 
 newFernTarget(
   fern
@@ -7,5 +7,5 @@ newFernTarget(
   fern.cpp
 
   LINK_LIBS
-  FernParse
+  FernCore
 )

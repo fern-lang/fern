@@ -18,6 +18,7 @@ enum class TokenKind {
   Dot,
   Colon,
   Semicolon,
+  Ref,
   
   // Operators
   Plus,
@@ -74,6 +75,10 @@ class Token {
 public:
   Token(TokenKind kind, std::string lexeme, SourceLocation location)
       : kind(kind), lexeme(lexeme), location(location) {}
+
+  auto operator==(const TokenKind &other) const -> bool {
+    return kind == other;
+  }
 
   auto getKind() const -> TokenKind { return kind; }
   auto getLexeme() const -> std::string { return lexeme; }

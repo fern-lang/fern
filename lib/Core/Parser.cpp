@@ -3,38 +3,46 @@
 
 namespace fern {
 
-auto Parser::parse() -> bool {
-  while (!tokens.isEof()) {
+auto Parser::parse() -> std::shared_ptr<ProgramNode> {
+  auto program = std::make_shared<ProgramNode>();
+  
 
+  while (!tokens.isEof()) {
     switch (tokens.peek()->getKind()) {
     case TokenKind::Func: {
       auto func = parseFunction();
       if (!func) {
-        return false;
+        return nullptr;
       }
 
-      ctx.addFunction(func);
+      program->addFunction(func);
       break;
     }
     case TokenKind::Extern: {
       auto ext = parseExternDef();
       if (!ext) {
-        return false;
+        return nullptr;
       }
 
-      ctx.addExtern(ext);
+      program->addExtern(ext);
       break;
     }
     default:
       ctx.recordError("unexpected token in top scope", tokens.peek()->getLocation());
-      return false;
+      return nullptr;
     }
   }
 
-  return ctx.getErrors().empty();
+  if (ctx.hasErrors()) {
+    return nullptr;
+  }
+
+  return program;
 }
 
 auto Parser::parseFunctionPrototype() -> std::shared_ptr<Prototype> {
+  auto loc = tokens.peek()->getLocation();
+
   if (tokens.peek()->getKind() != TokenKind::Func) {
     ctx.recordError("unexpected token, expected `func`", tokens.peek()->getLocation());
     return nullptr;
@@ -69,11 +77,11 @@ auto Parser::parseFunctionPrototype() -> std::shared_ptr<Prototype> {
     }
     tokens.next();
 
-    if (tokens.peek()->getKind() != TokenKind::Ident) {
-      ctx.recordError("unexpected token, expected identifier", tokens.peek()->getLocation());
+    auto argType = parseType();
+    if (argType.isInvalid()) {
+      ctx.recordError("failed to parse type annotation", tokens.peek()->getLocation());
       return nullptr;
     }
-    auto argType = *tokens.next();
     
     args.emplace_back(std::make_shared<PrototypeArg>(argName.getLexeme(), argType));
 
@@ -96,18 +104,18 @@ auto Parser::parseFunctionPrototype() -> std::shared_ptr<Prototype> {
   tokens.next();
 
 
-  Token retType = Token::makeInvalid();
+  Type retType = Type::Void(); // default to void
   if (tokens.peek()->getKind() == TokenKind::Arrow) {
     tokens.next();
 
-    if (tokens.peek()->getKind() != TokenKind::Ident) {
-      ctx.recordError("unexpected token, expected identifier", tokens.peek()->getLocation());
+    retType = parseType();
+    if (retType.isInvalid()) {
+      ctx.recordError("failed to parse return type", tokens.peek()->getLocation());
       return nullptr;
     }
-    retType = *tokens.next();
   }
 
-  return std::make_shared<Prototype>(funcName.getLexeme(), args, retType);
+  return std::make_shared<Prototype>(funcName.getLexeme(), args, retType, loc);
 }
 
 auto Parser::parseFunction() -> std::shared_ptr<Function> {
@@ -148,6 +156,32 @@ auto Parser::parseExternDef() -> std::shared_ptr<ExternDef> {
   return std::make_shared<ExternDef>(proto);
 }
 
+auto Parser::parseType() -> Type {
+  usize refDepth = 0;
+  Type type = Type::Invalid();
+
+  while (tokens.peek()->getKind() == TokenKind::Ref) {
+    tokens.next();
+    refDepth++;
+  }
+
+  switch (tokens.peek()->getKind()) {
+  case TokenKind::Ident:
+    if (auto primitiveType = getPrimitiveType(tokens.peek()->getLexeme())) {
+      type = *primitiveType;
+    }
+    tokens.next();
+    break;
+  default:
+    ctx.recordError("unexpected token, expected type name", tokens.peek()->getLocation());
+    break;
+  }
+
+  type.setRefDepth(refDepth);
+
+  return type;
+}
+
 auto Parser::parsePrimary() -> std::shared_ptr<AstNode> {
   switch (tokens.peek()->getKind()) {
   case TokenKind::LBrace:
@@ -172,8 +206,11 @@ auto Parser::parsePrimary() -> std::shared_ptr<AstNode> {
   case TokenKind::Continue:
   case TokenKind::Break:
     return parseSingleOpExpr();
+  case TokenKind::Comment:
+    tokens.next();
+    return parsePrimary();
   default:
-    ctx.recordError("unexpected token", tokens.peek()->getLocation());
+    ctx.recordError("unexpected token, expected expression", tokens.peek()->getLocation());
     return nullptr;
   }
 }
@@ -199,6 +236,18 @@ auto Parser::parseBinOpRHS(int exprPrec, std::shared_ptr<AstNode> lhs) -> std::s
       rhs = parseBinOpRHS(tokPrec + 1, rhs);
       if (!rhs) {
         return nullptr;
+      }
+    }
+
+    if (binOp == TokenKind::Equal || binOp == TokenKind::ColonEqual) {
+      if (!lhs->is<VariableNode>()) {
+        ctx.recordError("left hand side of assignment must be a variable", loc);
+        return nullptr;
+      }
+
+      if (binOp == TokenKind::ColonEqual) { // assign shorthand
+        return std::make_shared<LetNode>(loc, lhs->as<VariableNode>()->getName(),
+                                         std::nullopt, rhs);
       }
     }
 
@@ -246,10 +295,29 @@ auto Parser::parseParenExpr() -> std::shared_ptr<AstNode> {
 auto Parser::parseIdentifierExpr() -> std::shared_ptr<AstNode> {
   auto ident = *tokens.next();
 
-  if (tokens.peek()->getKind() != TokenKind::LParen) {
+  std::cout << "peeked token: " << tokens.peek()->toString() << "\n";
+  if (tokens.peek()->getKind() != TokenKind::LParen && tokens.peek()->getKind() != TokenKind::LBracket) {
     return std::make_shared<VariableNode>(ident.getLocation(), ident.getLexeme());
   }
   tokens.next();
+
+  if (tokens.peek()->getKind() == TokenKind::LBracket) {
+    std::cout << "parsing subscript\n";
+    auto index = parseExpr();
+    if (!index) {
+      ctx.recordError("failed to parse index expression", tokens.peek()->getLocation());
+      return nullptr;
+    }
+
+    if (tokens.peek()->getKind() != TokenKind::RBracket) {
+      ctx.recordError("expected closing `]`", ident.getLocation());
+      return nullptr;
+    }
+    tokens.next();
+
+    auto variable = std::make_shared<VariableNode>(ident.getLocation(), ident.getLexeme());
+    return std::make_shared<SubscriptNode>(ident.getLocation(), variable, index);
+  }
 
   std::vector<std::shared_ptr<AstNode>> args;
   while (tokens.peek()->getKind() != TokenKind::RParen) {
@@ -312,16 +380,16 @@ auto Parser::parseLetExpr() -> std::shared_ptr<AstNode> {
   }
   auto ident = *tokens.next();
 
-  Token type = Token::makeInvalid();
-  // if (tokens.peek()->getKind() == TokenKind::Colon) {
-  //   tokens.next();
+  std::optional<Type> type = std::nullopt;
+  if (tokens.peek()->getKind() == TokenKind::Colon) {
+    tokens.next();
 
-  //   if (tokens.peek()->getKind() != TokenKind::Ident) {
-  //     ctx.recordError("expected valid type annotation", tokens.peek()->getLocation());
-  //     return nullptr;
-  //   }
-  //   auto type = *tokens.next();
-  // }
+    type = std::make_optional(parseType());
+    if (type->isInvalid()) {
+      ctx.recordError("failed to parse let type annotation", tokens.peek()->getLocation());
+      return nullptr;
+    }
+  }
 
   if (tokens.peek()->getKind() != TokenKind::Equal) {
     ctx.recordError("expected `=`", tokens.peek()->getLocation());

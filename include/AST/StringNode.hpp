@@ -5,6 +5,7 @@
 #include <string>
 #include "../Parse/Lex/Token.hpp"
 #include "AstNode.hpp"
+#include "../Sema/TypeVisitor.hpp"
 
 namespace fern {
 
@@ -15,11 +16,17 @@ class StringNode : public AstNode {
 public:
   StringNode(SourceLocation loc, std::string value) :
       AstNode(loc),
-      value(value) {}
+      value(value)
+  {
+    setType(Type::Str());    
+  }
 
   virtual auto print(llvm::raw_fd_ostream &out, usize indent) const -> void override {
-    out << std::string(indent * 2, ' ') << "StringNode: \"" << value << "\"\n";
+    out.indent(indent) << "StringNode: \"" << value << "\"\n";
   }
+
+  auto typeCheck(TypeVisitor &visitor) -> void override { visitor.visit(*this); }
+  auto codegen(CodegenVisitor &visitor) -> llvm::Value* override  { return visitor.visit(*this); }
 
   auto getValue() const -> std::string { return value; }
 };

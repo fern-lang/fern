@@ -1,5 +1,18 @@
-extern func foo() -> int;
+extern func foo() -> str;
+extern func strcmp(a: str, b: str) -> int;
+extern func puts(s: str);
 
-func main(argc: int) -> int {
-  return 1 + 2 * (3 / (4 - 1)) + 0;
+func main(argc: int, argv: &str) -> int {
+  if argc < 2 {
+    return 1;
+  }
+
+  let s = foo();
+  if strcmp(s, argv[1]) == 0 {
+    puts("match\n");
+    return 0;
+  }
+
+  puts("no match\n");
+  return 1;
 }
